@@ -3,7 +3,7 @@
 // =====================================================
 window.PONTO_CONFIG = {
   // Nome que aparece no topo das páginas
-  NOME_EMPRESA: "Minha Empresa",
+  NOME_EMPRESA: "SFX",
 
   // Dados do seu projeto Supabase (Project Settings > API)
   // Deixe em branco ("") para usar o MODO DEMONSTRAÇÃO (dados só no navegador).
