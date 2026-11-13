@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Gestão de Ponto</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="estilo.css">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="comum.js"></script>
+</head>
+<body>
+
+<!-- LOGIN DO GESTOR -->
+<div id="telaLogin" class="tela-login oculto">
+  <div class="card">
+    <div class="marca"><div class="logo">P</div><div><b class="nomeEmp">Ponto</b><span class="muted peq">Área do gestor</span></div></div>
+    <div id="msgLogin"></div>
+    <form id="fLogin">
+      <div class="campo"><label for="gEmail">E-mail do gestor</label><input id="gEmail" type="email" autocomplete="username" required></div>
+      <div class="campo"><label for="gSenha">Senha</label><input id="gSenha" type="password" autocomplete="current-password" required></div>
+      <button class="btn btn-bloco" type="submit">Entrar no painel</button>
+    </form>
+    <p class="muted peq" id="dicaDemo" style="margin:12px 0 0"></p>
+  </div>
+</div>
+
+<!-- APLICAÇÃO -->
+<div id="app" class="oculto">
+  <header class="topo">
+    <div class="marca"><div class="logo">P</div><div><b class="nomeEmp">Ponto</b><span>Painel do gestor</span></div></div>
+    <div class="dir"><span class="relog" id="relogio"></span><button class="btn btn-sec btn-mini" id="btnSair">Sair</button></div>
+  </header>
+  <nav class="abas">
+    <button class="aba ativa" data-aba="painel">Painel</button>
+    <button class="aba" data-aba="registros">Registros</button>
+    <button class="aba" data-aba="funcionarios">Funcionários <span id="badgePend" class="badge oculto">0</span></button>
+  </nav>
+
+  <main class="conteudo">
+    <!-- ================= PAINEL ================= -->
+    <section id="abaPainel">
+      <div class="cab-sec">
+        <h2 style="margin:0">Visão geral</h2>
+        <div class="seg" id="segPeriodo">
+          <button data-p="hoje">Hoje</button><button data-p="semana">Semana</button><button data-p="mes" class="ativo">Mês</button><button data-p="mesAnt">Mês anterior</button>
+        </div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="rot">Em expediente agora</div><div class="val" id="kAgora">0</div><div class="sub" id="kAgoraSub"></div></div>
+        <div class="kpi"><div class="rot">Horas hoje (equipe)</div><div class="val" id="kHoje">0h</div><div class="sub">atualiza em tempo real</div></div>
+        <div class="kpi"><div class="rot">Horas no período</div><div class="val" id="kPer">0h</div><div class="sub" id="kPerSub"></div></div>
+        <div class="kpi"><div class="rot">A pagar no período</div><div class="val" id="kPagar">R$ 0</div><div class="sub">horas × valor/hora</div></div>
+      </div>
+
+      <div class="grade2">
+        <div class="card">
+          <div class="cab-sec"><h2 style="margin:0">🟢 Em expediente agora</h2><span class="muted peq" id="atualizado"></span></div>
+          <div class="ativos" id="listaAtivos"></div>
+        </div>
+        <div class="card">
+          <div class="cab-sec"><h2 style="margin:0">📍 Localizações de hoje</h2><span class="muted peq">🟢 entrada · 🔴 saída</span></div>
+          <div id="mapa"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px">
+        <div class="cab-sec"><h2 style="margin:0">Resumo por funcionário</h2><span class="muted peq" id="rotPeriodo"></span></div>
+        <div class="tabela-wrap"><table>
+          <thead><tr><th>Funcionário</th><th>Agora</th><th class="num">Dias</th><th class="num">Horas</th><th></th><th class="num">Valor/hora</th><th class="num">A pagar</th></tr></thead>
+          <tbody id="tResumo"></tbody>
+        </table></div>
+      </div>
+
+      <div class="card">
+        <div class="cab-sec"><h2 style="margin:0">Horas da equipe por dia</h2><span class="muted peq">últimos 14 dias</span></div>
+        <div id="grafico" style="display:flex;align-items:flex-end;gap:6px;height:180px;padding-top:10px"></div>
+      </div>
+    </section>
+
+    <!-- ================= REGISTROS ================= -->
+    <section id="abaRegistros" class="oculto">
+      <div class="card" style="margin-bottom:16px">
+        <div class="filtros">
+          <div class="campo"><label for="fFunc">Funcionário</label><select id="fFunc"></select></div>
+          <div class="campo"><label for="fDe">De</label><input id="fDe" type="date"></div>
+          <div class="campo"><label for="fAte">Até</label><input id="fAte" type="date"></div>
+          <button class="btn" id="btnBuscar">Buscar</button>
+          <button class="btn btn-sec" id="btnCsv">⬇ Exportar planilha (CSV)</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cab-sec"><h2 style="margin:0">Registros</h2><span id="totReg" class="muted"></span></div>
+        <div class="tabela-wrap"><table>
+          <thead><tr><th>Data</th><th>Funcionário</th><th>Entrada</th><th>Local</th><th>Saída</th><th>Local</th><th class="num">Duração</th><th class="num">Valor</th><th></th></tr></thead>
+          <tbody id="tReg"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- ================= FUNCIONÁRIOS ================= -->
+    <section id="abaFuncionarios" class="oculto">
+      <div class="card" style="margin-bottom:16px">
+        <h2>Cadastros aguardando autorização</h2>
+        <div id="listaPend"></div>
+      </div>
+      <div class="card">
+        <h2>Todos os funcionários</h2>
+        <div class="tabela-wrap"><table>
+          <thead><tr><th>Nome</th><th>Contato</th><th>Nascimento</th><th>Situação</th><th class="num">Valor/hora (R$)</th><th>Ações</th></tr></thead>
+          <tbody id="tFunc"></tbody>
+        </table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- MODAL DE AJUSTE -->
+<div id="modal" class="modal-fundo oculto">
+  <div class="modal">
+    <h2>Ajustar registro</h2>
+    <p class="muted peq" id="mInfo"></p>
+    <div class="campo"><label for="mEnt">Entrada</label><input id="mEnt" type="datetime-local"></div>
+    <div class="campo"><label for="mSai">Saída (deixe vazio se ainda está em expediente)</label><input id="mSai" type="datetime-local"></div>
+    <div class="campo"><label for="mObs">Motivo do ajuste</label><input id="mObs" placeholder="Ex.: esqueceu de registrar a saída"></div>
+    <div class="acoes" style="justify-content:space-between">
+      <button class="btn btn-perigo btn-mini" id="mExcluir">Excluir</button>
+      <span class="acoes"><button class="btn btn-sec" id="mCancelar">Cancelar</button><button class="btn" id="mSalvar">Salvar</button></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const CFG = window.PONTO_CONFIG || {};
+  document.querySelectorAll(".nomeEmp").forEach((e) => (e.textContent = CFG.NOME_EMPRESA || "Ponto"));
+  if (U.DEMO) $("dicaDemo").textContent = "Demonstração: gestor@demo.com / gestor123";
+
+  let perfis = [], regsPainel = [], regsLista = [], periodo = "mes", mapa = null, camada = null, timer = null;
+  const func = () => perfis.filter((p) => p.papel === "funcionario");
+  const perfil = (id) => perfis.find((p) => p.id === id) || { nome: "(removido)", valor_hora: 0 };
+
+  // ---------- Login ----------
+  async function iniciar() {
+    const s = await API.sessao();
+    if (s && s.perfil.papel === "gestor") return abrirApp();
+    $("telaLogin").classList.remove("oculto");
+  }
+  $("fLogin").addEventListener("submit", async (e) => {
+    e.preventDefault(); $("msgLogin").innerHTML = "";
+    const b = e.target.querySelector("button"); b.disabled = true;
+    try {
+      const s = await API.entrar($("gEmail").value.trim(), $("gSenha").value);
+      if (!s || s.perfil.papel !== "gestor") { await API.sair(); throw new Error("Acesso restrito ao gestor."); }
+      $("gSenha").value = ""; abrirApp();
+    } catch (err) { $("msgLogin").innerHTML = `<div class="msg msg-erro">${U.esc(U.traduzErro(err))}</div>`; }
+    finally { b.disabled = false; }
+  });
+  $("btnSair").onclick = async () => { await API.sair(); location.reload(); };
+
+  async function abrirApp() {
+    $("telaLogin").classList.add("oculto"); $("app").classList.remove("oculto");
+    $("fDe").value = U.paraInputData(U.inicioMes()); $("fAte").value = U.paraInputData(new Date());
+    await recarregar();
+    let deb; API.aoMudar(() => { clearTimeout(deb); deb = setTimeout(recarregar, 400); });
+    setInterval(recarregar, 60000);
+    timer = setInterval(tick, 1000); tick();
+  }
+
+  // ---------- Abas ----------
+  document.querySelectorAll(".aba").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll(".aba").forEach((x) => x.classList.toggle("ativa", x === b));
+    ["painel", "registros", "funcionarios"].forEach((a) => $("aba" + a[0].toUpperCase() + a.slice(1)).classList.toggle("oculto", a !== b.dataset.aba));
+    if (b.dataset.aba === "registros") buscarRegistros();
+    if (b.dataset.aba === "painel" && mapa) setTimeout(() => mapa.invalidateSize(), 50);
+  }));
+  $("segPeriodo").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    periodo = b.dataset.p;
+    $("segPeriodo").querySelectorAll("button").forEach((x) => x.classList.toggle("ativo", x === b));
+    renderPainel();
+  });
+
+  function intervalo() {
+    const agora = new Date();
+    if (periodo === "hoje") return [U.inicioDia(), agora, "Hoje"];
+    if (periodo === "semana") return [U.inicioSemana(), agora, "Semana atual (desde segunda)"];
+    if (periodo === "mesAnt") { const i = new Date(agora.getFullYear(), agora.getMonth() - 1, 1); return [i, new Date(U.inicioMes() - 1), i.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })]; }
+    return [U.inicioMes(), agora, agora.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })];
+  }
+
+  // ---------- Carregamento ----------
+  async function recarregar() {
+    try {
+      const inicio = new Date(Math.min(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1), U.inicioDia(new Date(Date.now() - 14 * 86400000))));
+      [perfis, regsPainel] = await Promise.all([API.listarPerfis(), API.listarRegistros(inicio, new Date())]);
+      $("atualizado").textContent = "atualizado " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      renderPainel(); renderFuncionarios(); preencherFiltroFunc();
+      if (!$("abaRegistros").classList.contains("oculto")) buscarRegistros();
+    } catch (err) { U.toast(U.traduzErro(err), "erro"); }
+  }
+
+  // ---------- Painel ----------
+  function renderPainel() {
+    const agora = Date.now(), [de, ate, rot] = intervalo();
+    const aprovados = func().filter((p) => p.status === "aprovado");
+    const ativos = regsPainel.filter((r) => !r.saida && perfil(r.usuario_id).papel !== "gestor");
+    $("kAgora").textContent = ativos.length;
+    $("kAgoraSub").textContent = `de ${aprovados.length} funcionário(s) ativo(s)`;
+    $("rotPeriodo").textContent = rot; $("kPerSub").textContent = rot;
+
+    // Lista "em expediente"
+    $("listaAtivos").innerHTML = ativos.length ? ativos.sort((a, b) => a.entrada.localeCompare(b.entrada)).map((r) => `
+      <div class="ativo"><span class="pulso"></span>
+        <div><div class="nome">${U.esc(perfil(r.usuario_id).nome)}</div>
+        <div class="muted peq">desde ${U.hora(r.entrada)}${new Date(r.entrada) < U.inicioDia() ? " de " + U.data(r.entrada) : ""} · ${U.linkLocal(r.entrada_lat, r.entrada_lng, r.entrada_precisao)}</div></div>
+        <div class="cont" data-desde="${r.entrada}">${U.hms(agora - new Date(r.entrada))}</div></div>`).join("")
+      : '<div class="vazio">Ninguém em expediente no momento.</div>';
+
+    // Resumo por funcionário
+    const linhas = func().filter((p) => p.status === "aprovado" || regsPainel.some((r) => r.usuario_id === p.id)).map((p) => {
+      const rs = regsPainel.filter((r) => r.usuario_id === p.id);
+      const ms = U.somaPeriodo(rs, de, ate, agora);
+      const dias = new Set(rs.filter((r) => U.duracaoNoPeriodo(r, de, ate, agora) > 0).map((r) => U.data(r.entrada))).size;
+      const emExp = rs.some((r) => !r.saida);
+      return { p, ms, dias, emExp, valor: U.horasDec(ms) * Number(p.valor_hora || 0) };
+    }).sort((a, b) => b.ms - a.ms);
+    const max = Math.max(1, ...linhas.map((l) => l.ms));
+    $("tResumo").innerHTML = linhas.length ? linhas.map((l) => `
+      <tr><td><b>${U.esc(l.p.nome)}</b></td>
+      <td>${l.emExp ? '<span class="tag tag-ok">em expediente</span>' : '<span class="muted peq">fora</span>'}</td>
+      <td class="num">${l.dias}</td><td class="num" data-uid="${l.p.id}"><b>${U.hm(l.ms)}</b></td>
+      <td style="width:22%"><div class="barra"><i style="width:${(l.ms / max) * 100}%"></i></div></td>
+      <td class="num">${Number(l.p.valor_hora) ? U.moeda(l.p.valor_hora) : '<a href="#" data-ir-func class="peq">definir</a>'}</td>
+      <td class="num"><b>${U.moeda(l.valor)}</b></td></tr>`).join("")
+      : '<tr><td colspan="7" class="vazio">Nenhum funcionário autorizado ainda.</td></tr>';
+    document.querySelectorAll("[data-ir-func]").forEach((a) => a.onclick = (e) => { e.preventDefault(); document.querySelector('[data-aba="funcionarios"]').click(); });
+
+    const totMs = linhas.reduce((t, l) => t + l.ms, 0);
+    $("kPer").textContent = U.hm(totMs);
+    $("kPagar").textContent = U.moeda(linhas.reduce((t, l) => t + l.valor, 0));
+    $("kHoje").textContent = U.hm(U.somaPeriodo(regsPainel, U.inicioDia(), null, agora));
+
+    renderGrafico(); renderMapa();
+  }
+
+  function renderGrafico() {
+    const dias = [];
+    for (let i = 13; i >= 0; i--) { const d = U.inicioDia(new Date(Date.now() - i * 86400000)); dias.push([d, U.fimDia(d)]); }
+    const vals = dias.map(([a, b]) => U.horasDec(U.somaPeriodo(regsPainel, a, b)));
+    const max = Math.max(1, ...vals);
+    $("grafico").innerHTML = dias.map(([d], i) => `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end" title="${U.data(d)}: ${vals[i].toFixed(1).replace(".", ",")} h">
+        <span class="peq muted" style="font-size:.7rem">${vals[i] ? vals[i].toFixed(0) + "h" : ""}</span>
+        <div style="width:100%;max-width:38px;height:${(vals[i] / max) * 130}px;min-height:${vals[i] ? 3 : 0}px;border-radius:6px 6px 2px 2px;background:${i === 13 ? "linear-gradient(180deg,#7b5cff,#2f5bea)" : "#c9d5fb"}"></div>
+        <span class="peq muted" style="font-size:.68rem;white-space:nowrap">${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>
+      </div>`).join("");
+  }
+
+  function renderMapa() {
+    const hoje = regsPainel.filter((r) => new Date(r.entrada) >= U.inicioDia() || !r.saida || (r.saida && new Date(r.saida) >= U.inicioDia()));
+    if (!window.L) { $("mapa").innerHTML = '<div class="vazio">Mapa indisponível (sem conexão com o serviço de mapas). Use os links 📍 nos registros.</div>'; return; }
+    if (!mapa) {
+      mapa = L.map("mapa", { zoomControl: true }).setView([-14.2, -51.9], 4);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(mapa);
+      camada = L.layerGroup().addTo(mapa);
+    }
+    camada.clearLayers();
+    const pts = [];
+    const pino = (lat, lng, cor, txt) => { if (lat == null) return; pts.push([lat, lng]); L.circleMarker([lat, lng], { radius: 8, color: "#fff", weight: 2, fillColor: cor, fillOpacity: 0.95 }).bindPopup(txt).addTo(camada); };
+    hoje.forEach((r) => {
+      const n = U.esc(perfil(r.usuario_id).nome);
+      pino(r.entrada_lat, r.entrada_lng, "#12a150", `<b>${n}</b><br>Entrada ${U.hora(r.entrada)}<br>±${Math.round(r.entrada_precisao || 0)} m`);
+      if (r.saida) pino(r.saida_lat, r.saida_lng, "#dc3b3b", `<b>${n}</b><br>Saída ${U.hora(r.saida)}<br>±${Math.round(r.saida_precisao || 0)} m`);
+    });
+    if (pts.length) mapa.fitBounds(pts, { padding: [30, 30], maxZoom: 16 });
+  }
+
+  function tick() {
+    const agora = Date.now();
+    $("relogio").textContent = new Date().toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    document.querySelectorAll("[data-desde]").forEach((el) => (el.textContent = U.hms(agora - new Date(el.dataset.desde))));
+    if (regsPainel.some((r) => !r.saida)) {
+      const [de, ate] = intervalo();
+      $("kHoje").textContent = U.hm(U.somaPeriodo(regsPainel, U.inicioDia(), null, agora));
+      let tot = 0, pagar = 0;
+      func().forEach((p) => {
+        const ms = U.somaPeriodo(regsPainel.filter((r) => r.usuario_id === p.id), de, periodo === "mesAnt" ? ate : agora, agora);
+        tot += ms; pagar += U.horasDec(ms) * Number(p.valor_hora || 0);
+        const cel = document.querySelector(`[data-uid="${p.id}"] b`); if (cel) cel.textContent = U.hm(ms);
+      });
+      $("kPer").textContent = U.hm(tot); $("kPagar").textContent = U.moeda(pagar);
+    }
+  }
+
+  // ---------- Funcionários ----------
+  function renderFuncionarios() {
+    const pend = func().filter((p) => p.status === "pendente");
+    $("badgePend").textContent = pend.length; $("badgePend").classList.toggle("oculto", !pend.length);
+    $("listaPend").innerHTML = pend.length ? `<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Celular</th><th>Nascimento</th><th>Cadastrado em</th><th>Ações</th></tr></thead><tbody>${pend.map((p) => `
+      <tr><td><b>${U.esc(p.nome)}</b></td>
+      <td>${U.esc(p.email)}<br>${p.email_confirmado ? '<span class="tag tag-ok">e-mail confirmado</span>' : '<span class="tag tag-pend">e-mail não confirmado</span>'}</td>
+      <td><a href="${U.whatsapp(p.telefone)}" target="_blank" rel="noopener">${U.esc(p.telefone || "—")}</a></td>
+      <td>${p.nascimento ? U.data(p.nascimento + "T12:00") : "—"}</td><td>${U.data(p.criado_em)}</td>
+      <td><div class="acoes"><button class="btn btn-ok btn-mini" data-status="aprovado" data-id="${p.id}">✔ Autorizar</button><button class="btn btn-sec btn-mini" data-status="recusado" data-id="${p.id}">Recusar</button></div></td></tr>`).join("")}</tbody></table></div>`
+      : '<div class="vazio">Nenhum cadastro pendente. 👍</div>';
+
+    const tags = { aprovado: '<span class="tag tag-ok">autorizado</span>', pendente: '<span class="tag tag-pend">pendente</span>', recusado: '<span class="tag tag-bloq">recusado</span>', bloqueado: '<span class="tag tag-bloq">bloqueado</span>' };
+    $("tFunc").innerHTML = func().length ? func().map((p) => `
+      <tr><td><b>${U.esc(p.nome)}</b><br><span class="muted peq">${U.esc(p.email)}</span></td>
+      <td><a href="${U.whatsapp(p.telefone)}" target="_blank" rel="noopener">💬 ${U.esc(p.telefone || "—")}</a></td>
+      <td>${p.nascimento ? U.data(p.nascimento + "T12:00") : "—"}</td>
+      <td>${tags[p.status] || p.status}</td>
+      <td class="num"><input class="input-valor" type="number" min="0" step="0.01" value="${Number(p.valor_hora || 0).toFixed(2)}" data-valor="${p.id}"></td>
+      <td><div class="acoes">${p.status === "aprovado"
+        ? `<button class="btn btn-sec btn-mini" data-status="bloqueado" data-id="${p.id}">Bloquear</button>`
+        : `<button class="btn btn-ok btn-mini" data-status="aprovado" data-id="${p.id}">${p.status === "pendente" ? "Autorizar" : "Reativar"}</button>`}</div></td></tr>`).join("")
+      : '<tr><td colspan="6" class="vazio">Nenhum funcionário cadastrado ainda. Envie o link de cadastro no grupo.</td></tr>';
+  }
+
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-status]"); if (!b) return;
+    const p = perfil(b.dataset.id), st = b.dataset.status;
+    const frases = { aprovado: `Autorizar ${p.nome} a registrar ponto?`, recusado: `Recusar o cadastro de ${p.nome}?`, bloqueado: `Bloquear o acesso de ${p.nome}?` };
+    if (!confirm(frases[st])) return;
+    b.disabled = true;
+    try { await API.atualizarPerfil(p.id, { status: st }); U.toast(st === "aprovado" ? `${p.nome} autorizado(a)` : "Situação atualizada"); await recarregar(); }
+    catch (err) { U.toast(U.traduzErro(err), "erro"); b.disabled = false; }
+  });
+  document.addEventListener("change", async (e) => {
+    const inp = e.target.closest("[data-valor]"); if (!inp) return;
+    const v = Math.max(0, Number(String(inp.value).replace(",", ".")) || 0);
+    try { await API.atualizarPerfil(inp.dataset.valor, { valor_hora: v }); U.toast(`Valor/hora salvo: ${U.moeda(v)}`); await recarregar(); }
+    catch (err) { U.toast(U.traduzErro(err), "erro"); }
+  });
+
+  // ---------- Registros ----------
+  function preencherFiltroFunc() {
+    const atual = $("fFunc").value;
+    $("fFunc").innerHTML = '<option value="">Todos</option>' + func().map((p) => `<option value="${p.id}">${U.esc(p.nome)}</option>`).join("");
+    $("fFunc").value = atual;
+  }
+  async function buscarRegistros() {
+    const de = U.inicioDia(new Date($("fDe").value + "T00:00")), ate = U.fimDia(new Date($("fAte").value + "T00:00"));
+    try {
+      const todos = await API.listarRegistros(de, ate);
+      regsLista = todos.filter((r) => (!$("fFunc").value || r.usuario_id === $("fFunc").value) && new Date(r.entrada) >= de && new Date(r.entrada) <= ate)
+        .sort((a, b) => b.entrada.localeCompare(a.entrada));
+    } catch (err) { return U.toast(U.traduzErro(err), "erro"); }
+    let tot = 0, val = 0;
+    $("tReg").innerHTML = regsLista.length ? regsLista.map((r) => {
+      const p = perfil(r.usuario_id), ms = U.duracaoNoPeriodo(r), v = U.horasDec(ms) * Number(p.valor_hora || 0);
+      tot += ms; val += v;
+      return `<tr><td>${U.dataCurta(r.entrada)}</td><td><b>${U.esc(p.nome)}</b>${r.ajustado ? ` <span class="tag tag-aj" title="${U.esc(r.obs || "")}">ajustado</span>` : ""}</td>
+        <td>${U.hora(r.entrada)}</td><td>${U.linkLocal(r.entrada_lat, r.entrada_lng, r.entrada_precisao)}</td>
+        <td>${r.saida ? U.hora(r.saida) + (U.data(r.saida) !== U.data(r.entrada) ? ` <span class="muted peq">(${U.data(r.saida)})</span>` : "") : '<span class="tag tag-aberto">em aberto</span>'}</td>
+        <td>${r.saida ? U.linkLocal(r.saida_lat, r.saida_lng, r.saida_precisao) : ""}</td>
+        <td class="num">${U.hm(ms)}</td><td class="num">${U.moeda(v)}</td>
+        <td><button class="btn btn-sec btn-mini" data-ajustar="${r.id}">Ajustar</button></td></tr>`;
+    }).join("") : '<tr><td colspan="9" class="vazio">Nenhum registro no período.</td></tr>';
+    $("totReg").innerHTML = `${regsLista.length} registro(s) · <b>${U.hm(tot)}</b> · <b>${U.moeda(val)}</b>`;
+  }
+  $("btnBuscar").onclick = buscarRegistros;
+  $("fFunc").onchange = buscarRegistros;
+
+  $("btnCsv").onclick = () => {
+    const n = (x) => String(x).replace(".", ",");
+    const cab = ["Funcionário", "Data", "Entrada", "Saída", "Duração", "Horas (decimal)", "Valor/hora", "Valor a pagar", "Lat. entrada", "Long. entrada", "Precisão entrada (m)", "Lat. saída", "Long. saída", "Precisão saída (m)", "Ajustado", "Motivo do ajuste", "Mapa entrada", "Mapa saída"];
+    const linhas = regsLista.slice().reverse().map((r) => {
+      const p = perfil(r.usuario_id), ms = U.duracaoNoPeriodo(r), h = U.horasDec(ms);
+      return [p.nome, U.data(r.entrada), U.hora(r.entrada), r.saida ? U.data(r.saida) + " " + U.hora(r.saida) : "EM ABERTO", U.hm(ms), n(h.toFixed(2)), n(Number(p.valor_hora || 0).toFixed(2)), n((h * Number(p.valor_hora || 0)).toFixed(2)),
+        r.entrada_lat ?? "", r.entrada_lng ?? "", r.entrada_precisao ? Math.round(r.entrada_precisao) : "", r.saida_lat ?? "", r.saida_lng ?? "", r.saida_precisao ? Math.round(r.saida_precisao) : "",
+        r.ajustado ? "sim" : "não", r.obs || "", r.entrada_lat != null ? U.mapa(r.entrada_lat, r.entrada_lng) : "", r.saida_lat != null ? U.mapa(r.saida_lat, r.saida_lng) : ""];
+    });
+    const csv = "﻿" + [cab, ...linhas].map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `ponto_${$("fDe").value}_a_${$("fAte").value}.csv`;
+    a.click();
+  };
+
+  // ---------- Modal de ajuste ----------
+  let emAjuste = null;
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ajustar]"); if (!b) return;
+    emAjuste = regsLista.find((r) => String(r.id) === b.dataset.ajustar);
+    $("mInfo").textContent = `${perfil(emAjuste.usuario_id).nome} — ${U.data(emAjuste.entrada)}`;
+    $("mEnt").value = U.paraInputDataHora(emAjuste.entrada);
+    $("mSai").value = emAjuste.saida ? U.paraInputDataHora(emAjuste.saida) : "";
+    $("mObs").value = emAjuste.obs || "";
+    $("modal").classList.remove("oculto");
+  });
+  const fechar = () => { $("modal").classList.add("oculto"); emAjuste = null; };
+  $("mCancelar").onclick = fechar;
+  $("modal").addEventListener("click", (e) => { if (e.target.id === "modal") fechar(); });
+  $("mSalvar").onclick = async () => {
+    const ent = new Date($("mEnt").value), sai = $("mSai").value ? new Date($("mSai").value) : null;
+    if (isNaN(ent)) return U.toast("Informe a entrada.", "erro");
+    if (sai && sai <= ent) return U.toast("A saída precisa ser depois da entrada.", "erro");
+    if (!$("mObs").value.trim()) return U.toast("Informe o motivo do ajuste.", "erro");
+    try {
+      await API.ajustarRegistro(emAjuste.id, { entrada: ent.toISOString(), saida: sai ? sai.toISOString() : null, obs: $("mObs").value.trim() });
+      U.toast("Registro ajustado"); fechar(); await recarregar(); buscarRegistros();
+    } catch (err) { U.toast(U.traduzErro(err), "erro"); }
+  };
+  $("mExcluir").onclick = async () => {
+    if (!confirm("Excluir este registro definitivamente?")) return;
+    try { await API.excluirRegistro(emAjuste.id); U.toast("Registro excluído"); fechar(); await recarregar(); buscarRegistros(); }
+    catch (err) { U.toast(U.traduzErro(err), "erro"); }
+  };
+
+  iniciar();
+})();
+</script>
+</body>
+</html>

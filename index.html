@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f5bea">
+<title>Ponto Eletrônico</title>
+<link rel="stylesheet" href="estilo.css">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="comum.js"></script>
+</head>
+<body>
+<div class="app-func">
+  <div class="marca"><div class="logo">P</div><div><b id="nomeEmpresa">Ponto</b><span class="muted peq">Ponto eletrônico</span></div></div>
+
+  <!-- LOGIN -->
+  <section id="vLogin" class="card oculto">
+    <h2>Entrar</h2>
+    <div id="msgLogin"></div>
+    <form id="fLogin">
+      <div class="campo"><label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="email" required></div>
+      <div class="campo"><label for="lSenha">Senha</label><input id="lSenha" type="password" autocomplete="current-password" required></div>
+      <button class="btn btn-bloco" type="submit">Entrar</button>
+    </form>
+    <p class="peq" style="display:flex;justify-content:space-between;margin:14px 0 0">
+      <button class="link-btn" data-ir="vCadastro">Primeiro acesso? Cadastre-se</button>
+      <button class="link-btn" data-ir="vEsqueci">Esqueci a senha</button>
+    </p>
+    <p class="muted peq oculto" id="dicaDemo" style="margin:10px 0 0">Demonstração: ana@demo.com / 123456 (ou crie um cadastro novo)</p>
+  </section>
+
+  <!-- CADASTRO -->
+  <section id="vCadastro" class="card oculto">
+    <h2>Cadastro</h2>
+    <p class="muted peq">Preencha seus dados. Depois de confirmar o e-mail, o gestor precisa autorizar seu acesso.</p>
+    <div id="msgCad"></div>
+    <form id="fCad">
+      <div class="campo"><label for="cNome">Nome completo</label><input id="cNome" autocomplete="name" required minlength="3"></div>
+      <div class="campo"><label for="cNasc">Data de nascimento</label><input id="cNasc" type="date" required></div>
+      <div class="campo"><label for="cTel">Celular / WhatsApp</label><input id="cTel" type="tel" inputmode="tel" placeholder="(96) 99999-9999" autocomplete="tel" required></div>
+      <div class="campo"><label for="cEmail">E-mail</label><input id="cEmail" type="email" autocomplete="email" required></div>
+      <div class="campo"><label for="cSenha">Senha (mínimo 6 caracteres)</label><input id="cSenha" type="password" autocomplete="new-password" minlength="6" required></div>
+      <div class="campo"><label for="cSenha2">Repita a senha</label><input id="cSenha2" type="password" autocomplete="new-password" minlength="6" required></div>
+      <button class="btn btn-bloco" type="submit">Criar cadastro</button>
+    </form>
+    <p class="peq" style="margin:14px 0 0"><button class="link-btn" data-ir="vLogin">← Já tenho cadastro</button></p>
+  </section>
+
+  <!-- CADASTRO ENVIADO -->
+  <section id="vEnviado" class="card oculto">
+    <h2>Quase lá! 📧</h2>
+    <p>Enviamos um e-mail para <b id="emailEnviado"></b>. Abra a mensagem e toque no link para <b>confirmar seu e-mail</b> (veja também a caixa de spam).</p>
+    <p>Depois disso, o gestor vai <b>autorizar seu cadastro</b>. Assim que for autorizado, é só entrar com seu e-mail e senha.</p>
+    <button class="btn btn-sec btn-bloco" data-ir="vLogin">Ir para o login</button>
+  </section>
+
+  <!-- ESQUECI A SENHA -->
+  <section id="vEsqueci" class="card oculto">
+    <h2>Recuperar senha</h2>
+    <div id="msgEsq"></div>
+    <form id="fEsq">
+      <div class="campo"><label for="eEmail">Seu e-mail</label><input id="eEmail" type="email" required></div>
+      <button class="btn btn-bloco" type="submit">Enviar link de recuperação</button>
+    </form>
+    <p class="peq" style="margin:14px 0 0"><button class="link-btn" data-ir="vLogin">← Voltar</button></p>
+  </section>
+
+  <!-- NOVA SENHA -->
+  <section id="vNovaSenha" class="card oculto">
+    <h2>Definir nova senha</h2>
+    <div id="msgNova"></div>
+    <form id="fNova">
+      <div class="campo"><label for="nSenha">Nova senha</label><input id="nSenha" type="password" minlength="6" required></div>
+      <button class="btn btn-bloco" type="submit">Salvar nova senha</button>
+    </form>
+  </section>
+
+  <!-- AGUARDANDO AUTORIZAÇÃO / BLOQUEADO -->
+  <section id="vPendente" class="card oculto">
+    <h2 id="pendTitulo">Aguardando autorização ⏳</h2>
+    <p id="pendTexto"></p>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-bloco" id="btnVerificar">Verificar novamente</button>
+      <button class="btn btn-sec" data-acao="sair">Sair</button>
+    </div>
+  </section>
+
+  <!-- GESTOR NA PÁGINA ERRADA -->
+  <section id="vGestorAqui" class="card oculto">
+    <h2>Área do funcionário</h2>
+    <p>Você entrou com a conta de gestor. O painel de gestão fica na página do gestor.</p>
+    <div style="display:flex;gap:8px"><a class="btn btn-bloco" href="gestor.html">Abrir painel do gestor</a><button class="btn btn-sec" data-acao="sair">Sair</button></div>
+  </section>
+
+  <!-- PONTO -->
+  <section id="vPonto" class="oculto">
+    <div class="topo-func">
+      <div><span class="muted peq">Olá,</span><br><b id="pNome"></b></div>
+      <button class="btn btn-sec btn-mini" data-acao="sair">Sair</button>
+    </div>
+    <div class="relogio"><div class="hora" id="relHora">--:--:--</div><div class="dia" id="relDia"></div></div>
+
+    <div id="statusExp" class="status-exp fora"></div>
+    <div id="msgPonto"></div>
+    <button id="btnPonto" class="btn btn-ponto btn-ok" disabled>Carregando…</button>
+    <p class="muted peq" style="text-align:center;margin:8px 0 0">📍 Sua localização é registrada na entrada e na saída.</p>
+
+    <div class="resumo3">
+      <div><b id="hHoje">0h 00min</b><span>hoje</span></div>
+      <div><b id="hSemana">0h 00min</b><span>esta semana</span></div>
+      <div><b id="hMes">0h 00min</b><span>este mês</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Meus últimos registros</h3>
+      <ul class="lista-reg" id="listaReg"></ul>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const CFG = window.PONTO_CONFIG || {};
+  $("nomeEmpresa").textContent = CFG.NOME_EMPRESA || "Ponto";
+  document.title = "Ponto — " + (CFG.NOME_EMPRESA || "");
+  if (U.DEMO) $("dicaDemo").classList.remove("oculto");
+
+  const views = ["vLogin", "vCadastro", "vEnviado", "vEsqueci", "vNovaSenha", "vPendente", "vGestorAqui", "vPonto"];
+  function mostrar(v) { views.forEach((x) => $(x).classList.toggle("oculto", x !== v)); window.scrollTo(0, 0); }
+  function msg(el, texto, tipo = "erro") { $(el).innerHTML = texto ? `<div class="msg msg-${tipo}">${U.esc(texto)}</div>` : ""; }
+  function ocupado(btn, sim, texto) {
+    if (sim) { btn.dataset.txt = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${texto || "Aguarde…"}`; }
+    else { btn.disabled = false; if (btn.dataset.txt) btn.innerHTML = btn.dataset.txt; }
+  }
+
+  document.addEventListener("click", async (e) => {
+    const ir = e.target.closest("[data-ir]");
+    if (ir) { e.preventDefault(); ["msgLogin", "msgCad", "msgEsq"].forEach((m) => msg(m, "")); mostrar(ir.dataset.ir); }
+    const ac = e.target.closest("[data-acao='sair']");
+    if (ac) { await API.sair(); sessao = null; pararTimers(); mostrar("vLogin"); }
+  });
+
+  let sessao = null, aberto = null, regs = [], timer = null;
+  let recuperando = /type=recovery/.test(location.hash);
+
+  // ---------- Roteamento por situação do cadastro ----------
+  async function rotear() {
+    if (recuperando) return mostrar("vNovaSenha");
+    sessao = await API.sessao();
+    if (!sessao) return mostrar("vLogin");
+    const p = sessao.perfil;
+    if (p.papel === "gestor") return mostrar("vGestorAqui");
+    if (p.status === "aprovado") { $("pNome").textContent = p.nome.split(" ")[0]; mostrar("vPonto"); return carregarPonto(); }
+    const t = {
+      pendente: ["Aguardando autorização ⏳", "Seu e-mail foi confirmado e seu cadastro foi enviado ao gestor. Assim que ele autorizar, você poderá registrar o ponto."],
+      recusado: ["Cadastro não autorizado", "O gestor não autorizou este cadastro. Fale com ele se achar que é um engano."],
+      bloqueado: ["Acesso bloqueado", "Seu acesso foi suspenso pelo gestor. Fale com ele para mais informações."],
+    }[p.status] || ["Aguardando", ""];
+    $("pendTitulo").textContent = t[0]; $("pendTexto").textContent = t[1];
+    mostrar("vPendente");
+  }
+
+  // ---------- Login ----------
+  $("fLogin").addEventListener("submit", async (e) => {
+    e.preventDefault(); msg("msgLogin", "");
+    const b = e.submitter || e.target.querySelector("button"); ocupado(b, true, "Entrando…");
+    try { await API.entrar($("lEmail").value.trim(), $("lSenha").value); $("lSenha").value = ""; await rotear(); }
+    catch (err) { msg("msgLogin", U.traduzErro(err)); }
+    finally { ocupado(b, false); }
+  });
+
+  // ---------- Cadastro ----------
+  $("cTel").addEventListener("input", (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 11);
+    e.target.value = d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d;
+  });
+  $("fCad").addEventListener("submit", async (e) => {
+    e.preventDefault(); msg("msgCad", "");
+    if ($("cSenha").value !== $("cSenha2").value) return msg("msgCad", "As senhas não conferem.");
+    if ($("cTel").value.replace(/\D/g, "").length < 10) return msg("msgCad", "Informe um celular válido com DDD.");
+    const b = e.target.querySelector("button"); ocupado(b, true, "Enviando…");
+    try {
+      const email = $("cEmail").value.trim();
+      await API.cadastrar({ nome: $("cNome").value.trim(), nascimento: $("cNasc").value, telefone: $("cTel").value.trim(), email, senha: $("cSenha").value });
+      $("fCad").reset(); $("emailEnviado").textContent = email;
+      if (U.DEMO) { $("emailEnviado").textContent = email + " (no modo demonstração o e-mail é confirmado automaticamente)"; }
+      mostrar("vEnviado");
+    } catch (err) { msg("msgCad", U.traduzErro(err)); }
+    finally { ocupado(b, false); }
+  });
+
+  // ---------- Recuperação de senha ----------
+  $("fEsq").addEventListener("submit", async (e) => {
+    e.preventDefault(); const b = e.target.querySelector("button"); ocupado(b, true);
+    try { await API.enviarRecuperacao($("eEmail").value.trim()); msg("msgEsq", "Se o e-mail estiver cadastrado, você vai receber um link para criar uma nova senha.", "ok"); }
+    catch (err) { msg("msgEsq", U.traduzErro(err)); }
+    finally { ocupado(b, false); }
+  });
+  API.aoRecuperarSenha(() => { recuperando = true; mostrar("vNovaSenha"); });
+  $("fNova").addEventListener("submit", async (e) => {
+    e.preventDefault(); const b = e.target.querySelector("button"); ocupado(b, true);
+    try { await API.definirSenha($("nSenha").value); U.toast("Senha alterada com sucesso!"); recuperando = false; history.replaceState(null, "", location.pathname); await rotear(); }
+    catch (err) { msg("msgNova", U.traduzErro(err)); }
+    finally { ocupado(b, false); }
+  });
+
+  $("btnVerificar").addEventListener("click", async (e) => { ocupado(e.target, true, "Verificando…"); await rotear(); ocupado(e.target, false); });
+
+  // ---------- Tela de ponto ----------
+  function pararTimers() { clearInterval(timer); timer = null; }
+  function tick() {
+    const agora = new Date();
+    $("relHora").textContent = agora.toLocaleTimeString("pt-BR");
+    $("relDia").textContent = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+    if (aberto) $("contador").textContent = U.hms(agora - new Date(aberto.entrada));
+    const t = Date.now();
+    $("hHoje").textContent = U.hm(U.somaPeriodo(regs, U.inicioDia(), null, t));
+    $("hSemana").textContent = U.hm(U.somaPeriodo(regs, U.inicioSemana(), null, t));
+    $("hMes").textContent = U.hm(U.somaPeriodo(regs, U.inicioMes(), null, t));
+  }
+
+  async function carregarPonto() {
+    const uid = sessao.user.id;
+    try {
+      const desde = new Date(Math.min(U.inicioSemana(), U.inicioMes()));
+      [aberto, regs] = await Promise.all([API.expedienteAberto(uid), API.meusRegistros(uid, desde)]);
+    } catch (err) { msg("msgPonto", U.traduzErro(err)); return; }
+    const st = $("statusExp"), b = $("btnPonto");
+    if (aberto) {
+      st.className = "status-exp dentro";
+      st.innerHTML = `<div>🟢 Em expediente desde <b>${U.hora(aberto.entrada)}</b>${new Date(aberto.entrada) < U.inicioDia() ? " de " + U.data(aberto.entrada) : ""}</div><div class="contador" id="contador">00:00:00</div>`;
+      b.className = "btn btn-ponto btn-perigo"; b.innerHTML = "⏹ Registrar saída"; b.dataset.tipo = "saida";
+    } else {
+      st.className = "status-exp fora";
+      st.innerHTML = `<div>Você está <b>fora do expediente</b></div>`;
+      b.className = "btn btn-ponto btn-ok"; b.innerHTML = "▶ Registrar entrada"; b.dataset.tipo = "entrada";
+    }
+    b.disabled = false; delete b.dataset.txt;
+    const ult = regs.slice(0, 8);
+    $("listaReg").innerHTML = ult.length ? ult.map((r) => `
+      <li><span><b>${U.dataCurta(r.entrada)}</b><br><span class="muted">${U.hora(r.entrada)} → ${r.saida ? U.hora(r.saida) : '<span class="tag tag-aberto">em andamento</span>'}</span></span>
+      <span class="num"><b>${U.hm(U.duracaoNoPeriodo(r))}</b>${r.ajustado ? '<br><span class="tag tag-aj">ajustado</span>' : ""}</span></li>`).join("")
+      : '<li class="muted">Nenhum registro ainda.</li>';
+    if (!timer) timer = setInterval(tick, 1000);
+    tick();
+  }
+
+  $("btnPonto").addEventListener("click", async () => {
+    const b = $("btnPonto"), tipo = b.dataset.tipo;
+    msg("msgPonto", "");
+    if (tipo === "saida" && !confirm("Confirmar o registro de SAÍDA agora?")) return;
+    ocupado(b, true, "Obtendo localização…");
+    try {
+      const pos = await U.obterLocalizacao();
+      b.innerHTML = '<span class="spinner"></span> Registrando…';
+      const r = await API.registrar(tipo, pos);
+      const h = U.hora(tipo === "entrada" ? r.entrada : r.saida);
+      U.toast(tipo === "entrada" ? `✅ Entrada registrada às ${h}` : `✅ Saída registrada às ${h}`);
+      if (pos.precisao > (CFG.PRECISAO_ALERTA_METROS || 150)) U.toast(`GPS com baixa precisão (±${Math.round(pos.precisao)} m). O registro foi feito mesmo assim.`, "info");
+      if (navigator.vibrate) navigator.vibrate(80);
+    } catch (err) {
+      msg("msgPonto", U.traduzErro(err));
+    }
+    await carregarPonto();
+  });
+
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && sessao && sessao.perfil.status === "aprovado") carregarPonto(); });
+
+  // Erros vindos de links de e-mail (ex.: link expirado)
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("error_description")) { msg("msgLogin", "O link expirou ou já foi usado. Entre com e-mail e senha ou peça um novo link."); history.replaceState(null, "", location.pathname); }
+
+  rotear();
+})();
+</script>
+</body>
+</html>
